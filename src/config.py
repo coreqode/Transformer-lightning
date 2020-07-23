@@ -32,7 +32,7 @@ class Config:
     epochs: int = 1
     batch_size: int = 64
     eval_size: int = 16
-    lr: float = 1e-4
+    lr: float = 1e-5
 
 
     decoder: Decoder = Decoder()
@@ -53,7 +53,7 @@ class Config:
 
 hc1 = Config(data='../data/',
                     exp_name='default',
-                    lang='hin.txt',
+                    lang='hi',
                 )
 
 #increasing hidden size needs change in lr, others only change time
@@ -68,6 +68,6 @@ hc23 = replace(hc21, num_attention_heads=12, hidden_size=384, lr=5e-4) #learns o
 hc24 = replace(hc23, intermediate_size=3072, lr=1e-5)
 
 preEnc = replace(hc24, epochs=5, exp_name='pretrained-enc')
-preEncDec = replace(hc24, epochs=100, exp_name='pretrained-enc-dec')
+preEncDec = replace(hc24, epochs=25, exp_name='pretrained-enc-dec')
 
 

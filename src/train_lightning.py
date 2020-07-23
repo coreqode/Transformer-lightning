@@ -13,6 +13,16 @@ import numpy as np
 from transformers import WEIGHTS_NAME, CONFIG_NAME
 import torch_optimizer as optim
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.callbacks import ModelCheckpoint
+
+
+
+
+
+def preproc_data():
+    from data import split_data
+    split_data('../data/hin.txt', '../data')
+
 
 def gen_model_loaders(config):
     model, tokenizers = M.build_model(config)
@@ -56,6 +66,8 @@ class BertModel(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         avg_val_acc = torch.stack([x['val_acc'] for x in outputs]).mean()
+        for name, weights in self.model.named_parameters():
+            self.logger.experiment.add_histogram(name, weights)
         log = {'val_loss': avg_loss, 'avg_val_acc': avg_val_acc}
         return { 'log':log}
 
@@ -73,8 +85,8 @@ class BertModel(pl.LightningModule):
         return self.val_loader
 
     def configure_optimizers(self):
-        # optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.lr)
-        optimizer = optim.RAdam(self.model.parameters(),lr= self.config.lr,betas=(0.9, 0.999),eps=1e-8,weight_decay=0,)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.lr)
+        # optimizer = optim.RAdam(self.model.parameters(),lr= self.config.lr,betas=(0.9, 0.999),eps=1e-8,weight_decay=0,)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(self.train_loader), eta_min=self.config.lr)
         return [optimizer], [scheduler]
 
@@ -93,10 +105,19 @@ class BertModel(pl.LightningModule):
         model_to_save.config.to_json_file(output_config_file)
         #src_tokenizer.save_vocabulary(output_dir)
 
+def main(ckpt_path, log_path, epoch):
+    logger = TensorBoardLogger(save_dir=log_path,version=2,name='lightning_logs')
+    checkpoint_callback = ModelCheckpoint(filepath=log_path)
+    trainer = pl.Trainer(max_epochs=epoch,gpus=1, logger=logger, show_progress_bar=True, checkpoint_callback=checkpoint_callback)
+    if ckpt_path:
+      model = BertModel.load_from_checkpoint(ckpt_path)
+    else:
+      model = BertModel()
+    trainer.fit(model)
 
 if __name__ == '__main__':
     log_path = '/content/content/itr/logs/pretrained-enc-dec'
-    model = BertModel()
-    logger = TensorBoardLogger(save_dir=log_path,version=1,name='lightning_logs')
-    trainer = pl.Trainer(max_epochs=2,gpus=1, logger=logger, show_progress_bar=True)
-    trainer.fit(model)
+    ckpt_path = '/content/content/itr/logs/pretrained-enc-dec/epoch=24.ckpt'
+    epoch = 50
+    main(None, log_path, epoch)  
+
